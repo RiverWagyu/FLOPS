@@ -128,11 +128,26 @@ function DevWalletButton() {
   );
 }
 
+/** The FLOPS mark: GPU cores lighting up as a rising chart; the green core is the live price. */
+const MARK = ["...g", "..pp", ".ppp", "pppp"];
+
 function Logo() {
+  const fill = { ".": "var(--color-line)", p: "var(--color-accent)", g: "var(--color-long)" } as const;
   return (
-    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <rect x="2" y="2" width="20" height="20" rx="4" fill="var(--color-accent)" />
-      <path d="M6 15h3v3H6zM10.5 11h3v7h-3zM15 7h3v11h-3z" fill="#0a0c10" />
+    <svg width="24" height="24" viewBox="0 0 40 40" aria-hidden>
+      {MARK.flatMap((row, r) =>
+        [...row].map((ch, c) => (
+          <rect
+            key={`${r}${c}`}
+            x={c * 10.5}
+            y={r * 10.5}
+            width="8.5"
+            height="8.5"
+            rx="2"
+            fill={fill[ch as keyof typeof fill]}
+          />
+        )),
+      )}
     </svg>
   );
 }
