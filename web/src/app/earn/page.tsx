@@ -11,6 +11,7 @@ import { useTusdBalance } from "@/lib/hooks";
 import { useExecute } from "@/lib/tx";
 import { fmtCompact, fmtPct, fmtUsd, fromWad, toWad } from "@/lib/format";
 import { Button, Panel, PanelHeader, Stat, Tabs } from "@/components/ui";
+import { AddTokenButton } from "@/components/AddToken";
 
 export default function EarnPage() {
   const { data: pool } = useQuery({ queryKey: ["pool"], queryFn: () => api<PoolInfo>("/api/pool"), refetchInterval: 10_000 });
@@ -122,6 +123,7 @@ function LpForm() {
           <Stat label="Your FLP value" value={`${fmtUsd(myValue)} tUSD`} />
           <Stat label="Withdrawable now" value={`${fmtUsd(withdrawable)} tUSD`} />
         </div>
+        <AddTokenButton token="FLP" className="-ml-2 self-start" />
         <div>
           <div className="mb-1 flex justify-between text-xs">
             <label htmlFor="lp-amt" className="text-muted">

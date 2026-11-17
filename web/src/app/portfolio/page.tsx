@@ -9,6 +9,7 @@ import { useMyPositions, useTusdBalance } from "@/lib/hooks";
 import { useExecute } from "@/lib/tx";
 import { fmtPct, fmtSigned, fmtUsd, fromWad, tone } from "@/lib/format";
 import { Button, Panel, PanelHeader, Stat } from "@/components/ui";
+import { AddTokenButton } from "@/components/AddToken";
 import { HistoryTable, PositionsTable } from "@/components/PositionsPanel";
 
 export default function PortfolioPage() {
@@ -57,9 +58,13 @@ export default function PortfolioPage() {
     <div className="mx-auto mt-4 flex max-w-6xl flex-col gap-3">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="text-xl font-semibold">Portfolio</h1>
-        <Button variant="accent" onClick={() => execute("Claim 10,000 tUSD", [{ ...contracts.tusd, functionName: "faucet" }])}>
-          Claim 10,000 tUSD
-        </Button>
+        <div className="flex flex-wrap items-center gap-1">
+          <AddTokenButton token="tUSD" />
+          <AddTokenButton token="FLP" />
+          <Button variant="accent" onClick={() => execute("Claim 10,000 tUSD", [{ ...contracts.tusd, functionName: "faucet" }])}>
+            Claim 10,000 tUSD
+          </Button>
+        </div>
       </div>
       <Panel className="grid grid-cols-2 gap-4 p-4 md:grid-cols-5">
         <Stat label="Net worth" value={`${fmtUsd(balance + inPositions + lp)} tUSD`} />
