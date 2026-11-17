@@ -69,7 +69,11 @@ export function OrderPanel({ market }: { market: MarketMeta }) {
       type === "market"
         ? { ...contracts.perps, functionName: "openPosition", args: [BigInt(market.id), isLong, c, s, toWad(tp), toWad(sl)] }
         : { ...contracts.perps, functionName: "placeOrder", args: [BigInt(market.id), isLong, c, s, toWad(trigger), toWad(tp), toWad(sl)] };
-    await execute(label, [call as any], { spender: contracts.perps.address, amount: toWad(totalCost) });
+    // Exactly what the contract pulls: collateral + one execution fee per keeper action
+    // (limit fill, TP/SL). Computed in wei so the exact-amount approval is never 1 wei short.
+    const keeperActions = BigInt((type === "limit" ? 1 : 0) + (tp || sl ? 1 : 0));
+    const amount = c + toWad(params.executionFee) * keeperActions;
+    await execute(label, [call as any], { spender: contracts.perps.address, amount });
     setBusy(false);
   }
 

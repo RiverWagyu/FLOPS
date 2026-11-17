@@ -11,7 +11,7 @@ import {
   writeContract,
 } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
-import { BaseError, ContractFunctionRevertedError, maxUint256, type Abi } from "viem";
+import { BaseError, ContractFunctionRevertedError, type Abi } from "viem";
 import { CHAIN, contracts } from "./config";
 import { useToast } from "@/components/Toasts";
 
@@ -42,7 +42,8 @@ export function useExecute() {
       if (!address) throw new Error("Connect a wallet first");
       const id = toast.push({ kind: "pending", title: label, body: "Confirm in your wallet…" });
       try {
-        // prepend an approval if this action spends tUSD
+        // Prepend an approval for exactly this action's tUSD, never an unlimited one:
+        // wallets rightly flag unlimited approvals, and it limits what a contract bug could take.
         if (opts?.spender && opts.amount && opts.amount > 0n) {
           const allowance = await readContract(config, {
             ...contracts.tusd,
@@ -50,7 +51,7 @@ export function useExecute() {
             args: [address, opts.spender],
           });
           if (allowance < opts.amount) {
-            calls = [{ ...contracts.tusd, functionName: "approve", args: [opts.spender, maxUint256] }, ...calls];
+            calls = [{ ...contracts.tusd, functionName: "approve", args: [opts.spender, opts.amount] }, ...calls];
           }
         }
 
