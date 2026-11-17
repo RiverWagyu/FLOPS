@@ -67,7 +67,12 @@ export async function openDb(databaseUrl: string): Promise<Db> {
     const { default: pg } = await import("pg");
     const pool = new pg.Pool({
       connectionString: databaseUrl,
-      ssl: /localhost|127\.0\.0\.1/.test(databaseUrl) ? undefined : { rejectUnauthorized: false },
+      // No TLS for local databases or Railway's private network (*.railway.internal);
+      // public hosts (e.g. Railway's TCP proxy, Neon, Supabase) need it.
+      ssl:
+        /localhost|127\.0\.0\.1|\.railway\.internal|sslmode=disable/.test(databaseUrl)
+          ? undefined
+          : { rejectUnauthorized: false },
     });
     db = {
       query: async (sql, params) => (await pool.query(sql, params as unknown[])).rows,
