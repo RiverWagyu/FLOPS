@@ -2,13 +2,15 @@ import { config } from "./config.ts";
 import { kvGet, kvSet, type Db } from "./db.ts";
 import { fromWad, perps, publicClient } from "./chain.ts";
 import { bus, type TradeRow } from "./bus.ts";
+import { smallerChunk } from "./rpc-limits.ts";
 
-const CHUNK = 2000n;
 const REASONS = ["close", "tp", "sl", "liquidation"] as const;
 
 /** Reads FlopsPerps events into Postgres for charts, history and leaderboards. */
 export class Indexer {
   private blockTs = new Map<bigint, number>();
+  /** Blocks per log query; shrinks automatically to whatever the RPC allows. */
+  private chunk = BigInt(process.env.LOG_CHUNK || 2000);
   constructor(private db: Db) {}
 
   async syncOnce(): Promise<void> {
@@ -16,8 +18,17 @@ export class Indexer {
     let from = stored ? BigInt(stored) + 1n : config.startBlock;
     const head = await publicClient.getBlockNumber();
     while (from <= head) {
-      const to = from + CHUNK - 1n < head ? from + CHUNK - 1n : head;
-      const logs = await publicClient.getContractEvents({ ...perps, fromBlock: from, toBlock: to });
+      const to = from + this.chunk - 1n < head ? from + this.chunk - 1n : head;
+      let logs;
+      try {
+        logs = await publicClient.getContractEvents({ ...perps, fromBlock: from, toBlock: to });
+      } catch (e) {
+        const next = smallerChunk((e as Error).message, this.chunk);
+        if (next === null) throw e;
+        console.log(`[indexer] RPC limits log queries; using ${next}-block chunks`);
+        this.chunk = next;
+        continue;
+      }
       for (const log of logs) {
         if (log.eventName === "PricesUpdated") continue;
         await this.handle(log as any);
