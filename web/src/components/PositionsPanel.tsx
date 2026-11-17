@@ -106,9 +106,11 @@ export function PositionsTable({ positions, highlight }: { positions: LivePositi
                 <Button
                   className="!px-2.5 !py-1 text-xs"
                   onClick={() =>
-                    execute(`Close ${MARKETS[p.marketId]?.symbol} ${p.isLong ? "long" : "short"}`, [
-                      { ...contracts.perps, functionName: "closePosition", args: [p.id] },
-                    ])
+                    execute(
+                      `Close ${MARKETS[p.marketId]?.symbol} ${p.isLong ? "long" : "short"}`,
+                      [{ ...contracts.perps, functionName: "closePosition", args: [p.id] }],
+                      { freshPrice: true },
+                    )
                   }
                 >
                   Close

@@ -13,7 +13,7 @@ export type PostInput = {
 
 export type PostConfig = {
   simIntervalMs: number;
-  priceIntervalMs: number;
+  viewerIntervalMs: number;
   watchIntervalMs: number;
   idleIntervalMs: number;
   priceDeviation: number;
@@ -22,17 +22,15 @@ export type PostConfig = {
 /**
  * Decides whether this tick's simulated prices should be posted on-chain, and why
  * ("mode: detail"). Returns null to skip the (gas-costing) transaction.
- * Ticks are SIM_INTERVAL_MS apart, so intervals are matched to the nearest tick.
+ * Trades get a fresh price on request instead (see /api/refresh-prices), so watching alone
+ * only needs a slow heartbeat. Ticks are SIM_INTERVAL_MS apart, so intervals match the nearest tick.
  */
 export function postReason(s: PostInput, c: PostConfig): string | null {
   const due = (interval: number) => s.sinceLastPost >= interval - c.simIntervalMs / 2;
-  if (s.viewers > 0) {
-    return due(c.priceIntervalMs) || s.triggered ? `live: ${s.viewers} viewer(s)` : null;
-  }
-  if (s.openCount > 0) {
-    if (s.triggered) return "watching: order triggered";
-    if (s.drift >= c.priceDeviation) return "watching: price moved";
-    return due(c.watchIntervalMs) ? "watching: open positions" : null;
-  }
-  return due(c.idleIntervalMs) ? "idle: heartbeat" : null;
+  if (s.openCount > 0 && s.triggered) return "watching: order triggered";
+  if (s.openCount > 0 && s.drift >= c.priceDeviation) return "watching: price moved";
+  if (s.viewers > 0 && due(c.viewerIntervalMs)) return `live: ${s.viewers} viewer(s)`;
+  if (s.openCount > 0 && due(c.watchIntervalMs)) return "watching: open positions";
+  if (due(c.idleIntervalMs)) return "idle: heartbeat";
+  return null;
 }

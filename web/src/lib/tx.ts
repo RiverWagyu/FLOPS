@@ -12,7 +12,7 @@ import {
 } from "wagmi/actions";
 import { useQueryClient } from "@tanstack/react-query";
 import { BaseError, ContractFunctionRevertedError, type Abi } from "viem";
-import { CHAIN, contracts } from "./config";
+import { CHAIN, KEEPER_URL, contracts } from "./config";
 import { useToast } from "@/components/Toasts";
 
 export type Call = { address: `0x${string}`; abi: Abi; functionName: string; args?: readonly unknown[] };
@@ -38,10 +38,21 @@ export function useExecute() {
   const toast = useToast();
 
   return useCallback(
-    async (label: string, calls: Call[], opts?: { spender?: `0x${string}`; amount?: bigint }) => {
+    async (
+      label: string,
+      calls: Call[],
+      opts?: { spender?: `0x${string}`; amount?: bigint; freshPrice?: boolean },
+    ) => {
       if (!address) throw new Error("Connect a wallet first");
       const id = toast.push({ kind: "pending", title: label, body: "Confirm in your wallet…" });
       try {
+        // Opening/closing settles at the on-chain price, which the keeper only posts on demand
+        // (to save gas). Ask it to post the price shown on screen before the wallet pops up.
+        if (opts?.freshPrice) {
+          toast.update(id, { body: "Updating the on-chain price…" });
+          await refreshPrices();
+          toast.update(id, { body: "Confirm in your wallet…" });
+        }
         // Prepend an approval for exactly this action's tUSD, never an unlimited one:
         // wallets rightly flag unlimited approvals, and it limits what a contract bug could take.
         if (opts?.spender && opts.amount && opts.amount > 0n) {
@@ -94,8 +105,24 @@ export function useExecute() {
   );
 }
 
+export const KEEPER_OUT_OF_GAS =
+  "Trading is paused: the price keeper is out of test ETH. Positions are safe; try again once it's topped up.";
+
+/** Asks the keeper to post fresh prices on-chain; resolves once they're mined. */
+async function refreshPrices() {
+  let res: Response;
+  try {
+    res = await fetch(`${KEEPER_URL}/api/refresh-prices`, { method: "POST" });
+  } catch {
+    throw new Error("Can't reach the price keeper. Check your connection and try again.");
+  }
+  if (res.ok) return;
+  const { error } = await res.json().catch(() => ({ error: "" }));
+  throw new Error(error === "keeper-out-of-gas" ? KEEPER_OUT_OF_GAS : "The price keeper couldn't update prices. Try again.");
+}
+
 const REASONS: Record<string, string> = {
-  StalePrice: "Price feed is stale — the keeper may be offline.",
+  StalePrice: "The on-chain price expired before your transaction confirmed. Please try again.",
   LeverageTooHigh: "Leverage is above the maximum.",
   LeverageTooLow: "Leverage must be at least 1x.",
   CollateralTooLow: "Collateral is below the minimum (10 tUSD).",

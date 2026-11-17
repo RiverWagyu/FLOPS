@@ -29,11 +29,38 @@ export type LiveState = {
   /** When prices were last posted on-chain (ms). */
   lastPost: number;
   chainId: number;
+  keeper: KeeperStatus;
+};
+
+export type KeeperStatus = {
+  address: string;
+  /** Keeper wallet balance in ETH (pays gas for price posts and keeper actions). */
+  balance: number;
+  /** True when the balance can't cover many more price posts: trading is (about to be) paused. */
+  lowGas: boolean;
+  /** Last error from posting prices, "" when the last post succeeded. */
+  lastError: string;
+};
+
+export type ApiHooks = {
+  /** Make sure on-chain prices are fresh; resolves with when they were posted (ms). */
+  refreshPrices: () => Promise<{ postedAt: number }>;
 };
 
 const TIMEFRAMES = new Set([60, 300, 900, 3600, 14400, 86400]);
 
-export function startApi(db: Db, state: LiveState, port: number, corsOrigins: string[]) {
+export function startApi(db: Db, state: LiveState, port: number, corsOrigins: string[], hooks: ApiHooks) {
+  // POST routes: called by the website right before a trade. A plain POST with no body
+  // is a "simple" CORS request, so browsers don't need a preflight.
+  const postRoutes: Record<string, () => Promise<unknown>> = {
+    "/api/refresh-prices": async () => {
+      try {
+        return await hooks.refreshPrices();
+      } catch (e) {
+        throw new HttpError(503, state.keeper.lowGas ? "keeper-out-of-gas" : (e as Error).message.split("\n")[0]);
+      }
+    },
+  };
   const routes: Record<string, (q: URLSearchParams) => Promise<unknown>> = {
     "/api/health": async () => ({
       ok: true,
@@ -41,6 +68,7 @@ export function startApi(db: Db, state: LiveState, port: number, corsOrigins: st
       lastPost: state.lastPost,
       chainId: state.chainId,
       viewers: viewers(),
+      keeper: state.keeper,
     }),
     "/api/markets": async () => state.markets,
     "/api/pool": async () => {
@@ -146,8 +174,10 @@ export function startApi(db: Db, state: LiveState, port: number, corsOrigins: st
     }
     if (req.method === "OPTIONS") return void res.writeHead(204).end();
     const url = new URL(req.url ?? "/", "http://x");
-    const handler = routes[url.pathname];
-    if (!handler || req.method !== "GET") return void res.writeHead(404).end();
+    const handler =
+      req.method === "GET" ? routes[url.pathname] : req.method === "POST" ? postRoutes[url.pathname] : undefined;
+    if (!handler) return void res.writeHead(404).end();
+    req.resume(); // ignore any request body
     try {
       const body = await handler(url.searchParams);
       res.writeHead(200, { "Content-Type": "application/json", "Cache-Control": "no-store" });
@@ -164,7 +194,7 @@ export function startApi(db: Db, state: LiveState, port: number, corsOrigins: st
   // the keeper posting prices (and spending gas) at full speed.
   const hidden = new WeakSet<WebSocket>();
   wss.on("connection", (ws: WebSocket) => {
-    ws.send(JSON.stringify({ type: "snapshot", markets: state.markets, pool: state.pool }));
+    ws.send(JSON.stringify({ type: "snapshot", markets: state.markets, pool: state.pool, keeper: state.keeper }));
     ws.on("message", (data) => {
       try {
         const msg = JSON.parse(String(data));
@@ -175,7 +205,7 @@ export function startApi(db: Db, state: LiveState, port: number, corsOrigins: st
     });
   });
   bus.on("event", (e: BusEvent) => {
-    const msg = JSON.stringify(e.type === "tick" ? { ...e, markets: state.markets, pool: state.pool } : e);
+    const msg = JSON.stringify(e.type === "tick" ? { ...e, markets: state.markets, pool: state.pool, keeper: state.keeper } : e);
     for (const c of wss.clients) if (c.readyState === 1) c.send(msg);
   });
 

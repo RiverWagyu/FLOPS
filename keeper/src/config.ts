@@ -17,16 +17,23 @@ export const config = {
   databaseUrl: process.env.DATABASE_URL || "",
   port: Number(env("PORT", "8787")),
   // The simulator ticks (and the website updates) every SIM_INTERVAL_MS. Posting prices on-chain
-  // costs gas, so the keeper only does it as often as needed:
-  //   someone has the site open      → every PRICE_INTERVAL_MS
-  //   nobody watching, trades open   → every WATCH_INTERVAL_MS, or at once if a TP/SL/limit order
-  //                                    triggers or a price drifts PRICE_DEVIATION from on-chain
-  //   nothing open, nobody watching  → every IDLE_INTERVAL_MS (heartbeat)
+  // costs gas, so the keeper only does it when needed:
+  //   a trader opens or closes        → on request (POST /api/refresh-prices), so fills match the
+  //                                     price on screen
+  //   someone has the site open       → every VIEWER_INTERVAL_MS, keeping the on-chain price inside
+  //                                     the contract's 30s freshness limit while wallets confirm
+  //   trades open                     → every WATCH_INTERVAL_MS, or at once if a TP/SL/limit order
+  //                                     triggers or a price drifts PRICE_DEVIATION from on-chain
+  //   nothing open, nobody watching   → every IDLE_INTERVAL_MS (heartbeat)
   simIntervalMs: Number(env("SIM_INTERVAL_MS", "2000")),
-  priceIntervalMs: Number(env("PRICE_INTERVAL_MS", "2000")),
+  viewerIntervalMs: Number(env("VIEWER_INTERVAL_MS", "20000")),
   watchIntervalMs: Number(env("WATCH_INTERVAL_MS", "15000")),
   idleIntervalMs: Number(env("IDLE_INTERVAL_MS", "300000")),
   priceDeviation: Number(env("PRICE_DEVIATION", "0.005")),
+  /** A refresh request is skipped if prices were posted this recently. */
+  freshMs: Number(env("FRESH_MS", "3000")),
+  /** Below this keeper balance (ETH) the site warns that trading is paused. */
+  lowGasEth: Number(env("LOW_GAS_ETH", "0.000005")),
   corsOrigins: env("CORS_ORIGINS", "http://localhost:3000").split(",").map((s) => s.trim()),
   perps: (process.env.PERPS_ADDRESS || dep?.perps) as `0x${string}`,
   vault: (process.env.VAULT_ADDRESS || dep?.vault) as `0x${string}`,

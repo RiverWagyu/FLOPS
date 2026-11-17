@@ -17,7 +17,7 @@ const LEV_MARKS = [1, 2, 5, 10, 25, 50];
 export function OrderPanel({ market }: { market: MarketMeta }) {
   const { address } = useAccount();
   const { openConnectModal } = useConnectModal();
-  const { markets } = useLive();
+  const { markets, keeper } = useLive();
   const params = useParams();
   const depths = useImpactDepths();
   const { balance } = useTusdBalance();
@@ -51,6 +51,7 @@ export function OrderPanel({ market }: { market: MarketMeta }) {
 
   let error = "";
   if (!m) error = "Waiting for price feed…";
+  else if (keeper?.lowGas && type === "market") error = "Trading paused: keeper out of gas";
   else if (collateral < params.minCollateral) error = `Minimum collateral is ${params.minCollateral} tUSD`;
   else if (address && totalCost > balance) error = "Insufficient tUSD — use the faucet";
   else if (m.maxPositionSize > 0 && size > m.maxPositionSize) error = `Max position size is ${fmtUsd(m.maxPositionSize, 0)}`;
@@ -73,7 +74,8 @@ export function OrderPanel({ market }: { market: MarketMeta }) {
     // (limit fill, TP/SL). Computed in wei so the exact-amount approval is never 1 wei short.
     const keeperActions = BigInt((type === "limit" ? 1 : 0) + (tp || sl ? 1 : 0));
     const amount = c + toWad(params.executionFee) * keeperActions;
-    await execute(label, [call as any], { spender: contracts.perps.address, amount });
+    // Market orders fill at the on-chain price right away, so refresh it first; limit orders don't.
+    await execute(label, [call as any], { spender: contracts.perps.address, amount, freshPrice: type === "market" });
     setBusy(false);
   }
 

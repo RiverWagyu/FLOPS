@@ -35,15 +35,61 @@ async function main() {
     lastTick: 0,
     lastPost: 0,
     chainId: config.chainId,
+    keeper: { address: account.address, balance: 0, lowGas: false, lastError: "" },
   };
   startPrices.forEach((p, i) => {
     state.markets[i].price = p;
     state.markets[i].onchainPrice = p;
   });
 
+  // keeper wallet balance → "trading paused" warning on the site when it runs dry
+  const checkBalance = async () => {
+    try {
+      state.keeper.balance = fromWad(await publicClient.getBalance({ address: account.address }));
+      const low = state.keeper.balance < config.lowGasEth;
+      if (low && !state.keeper.lowGas) console.warn(`[keeper] LOW GAS: ${state.keeper.balance} ETH, fund ${account.address}`);
+      state.keeper.lowGas = low;
+    } catch (e) {
+      console.warn("[balance]", (e as Error).message.split("\n")[0]);
+    }
+  };
+  await checkBalance();
+  setInterval(checkBalance, 15_000);
+
+  // On-chain prices. `latest` is the newest simulated price; `onchain` what the contract has.
+  let latest = startPrices.slice();
+  let onchain = startPrices.slice();
+  let inflight: Promise<number> | null = null;
+  /** Posts the newest simulated prices on-chain. Concurrent callers share one transaction. */
+  const postPrices = (): Promise<number> =>
+    (inflight ??= (async () => {
+      try {
+        const prices = latest.slice();
+        const hash = await walletClient.writeContract({ ...perps, functionName: "setPrices", args: [prices.map(toWad)] });
+        await publicClient.waitForTransactionReceipt({ hash, timeout: 20_000 });
+        onchain = prices;
+        state.lastPost = Date.now();
+        state.keeper.lastError = "";
+        prices.forEach((p, i) => (state.markets[i].onchainPrice = p));
+        return state.lastPost;
+      } catch (e) {
+        state.keeper.lastError = (e as Error).message.split("\n")[0];
+        void checkBalance();
+        throw e;
+      } finally {
+        inflight = null;
+      }
+    })());
+
   const indexer = new Indexer(db);
   const executor = new Executor(db);
-  const api = startApi(db, state, config.port, config.corsOrigins);
+  const api = startApi(db, state, config.port, config.corsOrigins, {
+    // The website calls this right before opening/closing, so the fill matches the price on screen.
+    refreshPrices: async () => {
+      if (Date.now() - state.lastPost < config.freshMs) return { postedAt: state.lastPost };
+      return { postedAt: await postPrices() };
+    },
+  });
 
   // indexer loop
   (async function indexLoop() {
@@ -71,8 +117,8 @@ async function main() {
   // price loop: the simulator ticks every SIM_INTERVAL_MS; prices go on-chain only when needed
   let last = Date.now();
   let failures = 0;
-  let onchain = startPrices.slice();
   let mode = "";
+  let postRetryAt = 0; // after a failed post (e.g. out of gas), wait before trying again
   const tick = async () => {
     const started = Date.now();
     try {
@@ -88,6 +134,7 @@ async function main() {
       const dt = Math.min((started - last) / 1000, 30);
       last = started;
       const { prices, events } = sim.step(dt, skews, started);
+      latest = prices;
 
       const openCount = await executor.load();
       const reason = postReason({
@@ -101,15 +148,14 @@ async function main() {
       if (nextMode !== mode) console.log(`[keeper] on-chain price mode: ${nextMode}`);
       mode = nextMode;
 
-      if (reason) {
-        const hash = await walletClient.writeContract({
-          ...perps,
-          functionName: "setPrices",
-          args: [prices.map(toWad)],
-        });
-        await publicClient.waitForTransactionReceipt({ hash, timeout: 20_000 });
-        onchain = prices.slice();
-        state.lastPost = started;
+      // A failed post (usually: keeper out of gas) must not stop the chart, news or indexing.
+      if (reason && started >= postRetryAt) {
+        try {
+          await postPrices();
+        } catch (e) {
+          postRetryAt = started + 30_000;
+          console.warn(`[post] failed (${reason}):`, (e as Error).message.split("\n")[0]);
+        }
       }
 
       for (const ev of events) {
@@ -125,7 +171,6 @@ async function main() {
       markets.forEach((m, i) => {
         const s = state.markets[i];
         s.price = prices[i];
-        s.onchainPrice = onchain[i];
         s.longOI = fromWad(m.longSize);
         s.shortOI = fromWad(m.shortSize);
         s.fundingRatePerHour = fromWad(m.fundingRatePerHour);

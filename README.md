@@ -61,15 +61,16 @@ flowchart LR
 
 **`keeper/`** (Node + TypeScript + viem)
 - Simulates prices as a mean-reverting random walk (Ornstein–Uhlenbeck) per GPU. Net trader open interest pushes the price toward the crowded side, and fictional "demand events" spike or sink a market and decay over ~20 min.
-- Posts all four prices in one transaction, only as often as needed, to keep gas costs low:
+- Posts all four prices in one transaction, only when needed, to keep gas costs low:
 
   | Situation | On-chain price updates |
   |---|---|
-  | Someone has the site open in a visible tab | every 2s |
-  | Nobody watching, positions or orders open | every 15s, or immediately when a TP/SL/limit order triggers or a price moves 0.5% |
+  | A trader opens or closes a position | right before it, on request from the website (`POST /api/refresh-prices`), so the fill matches the price on screen |
+  | Someone has the site open in a visible tab | every 20s, keeping the price within the contract's 30s freshness limit while wallets confirm |
+  | Positions or orders open | every 15s, or immediately when a TP/SL/limit order triggers or a price moves 0.5% |
   | Nothing open, nobody watching | every 5 min |
 
-  The website's chart keeps ticking every 2s in all cases. Each update costs about 72k gas.
+  The website's chart ticks every 2s from the simulator regardless. Each update costs about 72k gas. If the keeper wallet runs low on ETH, the site shows a "trading paused" banner with its address, and resumes on its own once funded.
 - Triggers liquidations, limit orders and TP/SL. Every action is simulated before sending, and the contract re-checks every condition.
 - Indexes contract events into Postgres (or embedded PGlite locally) and serves candles, trades, news, leaderboards and pool stats over HTTP and a WebSocket.
 

@@ -27,6 +27,7 @@ export function Header() {
         <span className="text-warn">●</span> {CHAIN.name} testnet demo · tUSD has no value · GPU prices and news are
         simulated · contracts are unaudited
       </div>
+      <KeeperBanner />
       <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-3">
           <Link href="/trade/H100" className="flex items-center gap-2" aria-label="FLOPS home">
@@ -133,5 +134,26 @@ function Logo() {
       <rect x="2" y="2" width="20" height="20" rx="4" fill="var(--color-accent)" />
       <path d="M6 15h3v3H6zM10.5 11h3v7h-3zM15 7h3v11h-3z" fill="#0a0c10" />
     </svg>
+  );
+}
+
+/** Shown when the keeper can't afford to post prices: opening and closing are paused until it's funded. */
+function KeeperBanner() {
+  const { keeper } = useLive();
+  if (!keeper?.lowGas) return null;
+  return (
+    <div role="alert" className="border-b border-short/40 bg-short/10 px-3 py-1.5 text-center text-xs text-fg">
+      <span className="font-semibold text-short">Trading paused:</span> the price keeper is out of test ETH, so
+      positions can&apos;t be opened or closed right now. Funds are safe. Send {CHAIN.name} ETH to{" "}
+      <a
+        className="num underline decoration-dotted"
+        href={`${CHAIN.blockExplorers?.default.url ?? ""}/address/${keeper.address}`}
+        target="_blank"
+        rel="noreferrer"
+      >
+        {keeper.address.slice(0, 6)}…{keeper.address.slice(-4)}
+      </a>{" "}
+      to resume.
+    </div>
   );
 }

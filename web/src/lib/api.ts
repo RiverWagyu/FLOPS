@@ -20,6 +20,9 @@ export type MarketState = {
 
 export type PoolState = { totalAssets: number; sharePrice: number; totalSupply: number };
 
+/** The keeper wallet that posts prices; `lowGas` means trading is (about to be) paused. */
+export type KeeperStatus = { address: string; balance: number; lowGas: boolean; lastError: string };
+
 export type Trade = {
   market: number;
   owner: string;
