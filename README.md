@@ -2,6 +2,8 @@
 
 **Long or short the hourly rental price of datacenter GPUs, fully on-chain.**
 
+**Live demo: [flops-iota.vercel.app](https://flops-iota.vercel.app)** (Base Sepolia testnet)
+
 FLOPS is a perpetual-futures exchange where the underlying asset is one hour of GPU compute:
 H100, A100, RTX 4090 and L40S. Traders open isolated long or short positions with 1–50x
 leverage against a shared liquidity pool. Every trade, liquidation, limit order and
