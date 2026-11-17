@@ -1,0 +1,27 @@
+{
+  "name": "@flops/keeper",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "tsx watch --env-file-if-exists=.env src/main.ts",
+    "start": "tsx --env-file-if-exists=.env src/main.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "tsx --test src/*.test.ts"
+  },
+  "dependencies": {
+    "@electric-sql/pglite": "0.5.16",
+    "pg": "8.23.1",
+    "tsx": "4.23.15",
+    "viem": "2.57.20",
+    "ws": "8.23.0"
+  },
+  "devDependencies": {
+    "@types/node": "26.6.6",
+    "@types/pg": "8.23.1",
+    "@types/ws": "8.18.2",
+    "typescript": "5.9.3"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}

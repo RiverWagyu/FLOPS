@@ -1,0 +1,21 @@
+{
+  "name": "flops",
+  "private": true,
+  "description": "FLOPS — an on-chain GPU-hour perpetuals exchange (testnet demo)",
+  "workspaces": [
+    "contracts",
+    "keeper",
+    "web"
+  ],
+  "scripts": {
+    "contracts:build": "cd contracts && forge build",
+    "contracts:test": "cd contracts && forge test",
+    "abi": "node scripts/export-abi.mjs",
+    "keeper": "npm run dev -w keeper",
+    "web": "npm run dev -w web",
+    "dev:local": "bash scripts/dev-local.sh"
+  },
+  "engines": {
+    "node": ">=22"
+  }
+}
