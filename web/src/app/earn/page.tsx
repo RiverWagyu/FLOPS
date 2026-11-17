@@ -4,9 +4,10 @@ import { useEffect, useRef, useState } from "react";
 import { useAccount, useReadContract } from "wagmi";
 import { useConnectModal } from "@rainbow-me/rainbowkit";
 import { useQuery } from "@tanstack/react-query";
-import { AreaSeries, ColorType, createChart, type UTCTimestamp } from "lightweight-charts";
+import { CandlestickSeries, ColorType, createChart, type UTCTimestamp } from "lightweight-charts";
 import { contracts } from "@/lib/config";
 import { api, type PoolInfo } from "@/lib/api";
+import { toCandles } from "@/lib/candles";
 import { useTusdBalance } from "@/lib/hooks";
 import { useExecute } from "@/lib/tx";
 import { fmtCompact, fmtPct, fmtUsd, fromWad, toWad } from "@/lib/format";
@@ -32,8 +33,7 @@ export default function EarnPage() {
       </Panel>
       <div className="grid gap-3 md:grid-cols-[1fr_360px]">
         <Panel className="flex h-[360px] flex-col">
-          <PanelHeader>FLP price</PanelHeader>
-          <SharePriceChart history={pool?.history ?? []} />
+          <SharePriceChart history={pool?.history ?? []} live={pool?.sharePrice} />
         </Panel>
         <LpForm />
       </div>
@@ -155,40 +155,64 @@ function LpForm() {
   );
 }
 
-function SharePriceChart({ history }: { history: PoolInfo["history"] }) {
+const FLP_TFS = [
+  { value: "300", label: "5m" },
+  { value: "900", label: "15m" },
+  { value: "3600", label: "1h" },
+  { value: "14400", label: "4h" },
+] as const;
+type FlpTf = (typeof FLP_TFS)[number]["value"];
+
+/** FLP share price as candles, built from the keeper's once-a-minute pool snapshots plus the live price. */
+function SharePriceChart({ history, live }: { history: PoolInfo["history"]; live?: number }) {
   const el = useRef<HTMLDivElement>(null);
   const series = useRef<ReturnType<ReturnType<typeof createChart>["addSeries"]> | null>(null);
+  const [tf, setTf] = useState<FlpTf>("300");
   useEffect(() => {
     if (!el.current) return;
+    const css = (v: string) => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+    const up = css("--color-long");
+    const down = css("--color-short");
     const c = createChart(el.current, {
       autoSize: true,
-      layout: { background: { type: ColorType.Solid, color: "transparent" }, textColor: "#7d8794", fontSize: 11, attributionLogo: false },
-      grid: { vertLines: { visible: false }, horzLines: { color: "#161b22" } },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, timeVisible: true },
+      layout: {
+        background: { type: ColorType.Solid, color: "transparent" },
+        textColor: css("--color-muted"),
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        attributionLogo: false,
+      },
+      grid: { vertLines: { color: "#161b22" }, horzLines: { color: "#161b22" } },
+      rightPriceScale: { borderColor: css("--color-line") },
+      timeScale: { borderColor: css("--color-line"), timeVisible: true, secondsVisible: false },
     });
-    series.current = c.addSeries(AreaSeries, {
-      lineColor: "#7b61ff",
-      topColor: "rgba(123,97,255,0.25)",
-      bottomColor: "rgba(123,97,255,0)",
-      lineWidth: 2,
+    series.current = c.addSeries(CandlestickSeries, {
+      upColor: up,
+      downColor: down,
+      wickUpColor: up,
+      wickDownColor: down,
+      borderVisible: false,
       priceFormat: { type: "price", precision: 5, minMove: 0.00001 },
     });
     return () => c.remove();
   }, []);
   useEffect(() => {
-    const seen = new Set<number>();
-    const data = history
-      .map((h) => ({ time: Math.floor(h.ts / 1000) as UTCTimestamp, value: h.sharePrice }))
-      .filter((d) => !seen.has(d.time) && seen.add(d.time));
-    series.current?.setData(data);
-  }, [history]);
+    const points = history.map((h) => ({ ts: h.ts, value: h.sharePrice }));
+    if (live && live > 0) points.push({ ts: Date.now(), value: live });
+    const candles = toCandles(points, Number(tf)).map((k) => ({ ...k, time: k.time as UTCTimestamp }));
+    series.current?.setData(candles);
+  }, [history, live, tf]);
   return (
-    <div className="relative min-h-0 flex-1">
-      <div ref={el} className="absolute inset-0" />
-      {history.length < 2 && (
-        <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">History builds up as the pool runs</div>
-      )}
-    </div>
+    <>
+      <PanelHeader right={<Tabs value={tf} onChange={setTf} items={FLP_TFS.map((t) => ({ value: t.value, label: t.label }))} />}>
+        FLP price
+      </PanelHeader>
+      <div className="relative min-h-0 flex-1">
+        <div ref={el} className="absolute inset-0" />
+        {history.length < 2 && (
+          <div className="absolute inset-0 flex items-center justify-center text-xs text-muted">History builds up as the pool runs</div>
+        )}
+      </div>
+    </>
   );
 }
