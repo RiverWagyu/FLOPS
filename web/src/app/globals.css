@@ -69,3 +69,10 @@ input[type="range"] {
 }
 .flash-up { animation: flash-up 0.8s ease-out; }
 .flash-down { animation: flash-down 0.8s ease-out; }
+
+/* Getting-started guide: briefly outline the element it points to */
+@keyframes guide-pulse {
+  0%, 100% { box-shadow: 0 0 0 0 transparent; }
+  30%, 70% { box-shadow: 0 0 0 3px var(--color-accent); }
+}
+.guide-highlight { animation: guide-pulse 1.2s ease-in-out 2; }

@@ -10,6 +10,7 @@ import { useTusdBalance } from "@/lib/hooks";
 import { useExecute } from "@/lib/tx";
 import { fmtUsd } from "@/lib/format";
 import { Button } from "./ui";
+import { GettingStarted, OPEN_GUIDE_EVENT } from "./GettingStarted";
 
 const NAV = [
   { href: "/trade/H100", match: "/trade", label: "Trade" },
@@ -53,6 +54,14 @@ export function Header() {
               title={connected ? "Live price feed connected" : "Price feed disconnected"}
               className={`hidden h-2 w-2 rounded-full sm:block ${connected ? "bg-long" : "animate-pulse bg-short"}`}
             />
+            <button
+              type="button"
+              onClick={() => window.dispatchEvent(new Event(OPEN_GUIDE_EVENT))}
+              className="hidden rounded px-2 py-1.5 text-xs text-muted hover:text-fg sm:block"
+              title="Open the getting-started guide"
+            >
+              Guide
+            </button>
             {DEPLOYED && <FaucetButton />}
             {IS_LOCAL && <DevWalletButton />}
             <ConnectButton chainStatus="none" showBalance={false} accountStatus={{ smallScreen: "avatar", largeScreen: "address" }} />
@@ -70,6 +79,7 @@ export function Header() {
           ))}
         </nav>
       </header>
+      <GettingStarted />
     </>
   );
 }

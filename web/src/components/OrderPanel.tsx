@@ -82,7 +82,7 @@ export function OrderPanel({ market }: { market: MarketMeta }) {
   const pct = (p: number) => (ref > 0 && p > 0 ? (p / ref - 1) * (isLong ? 1 : -1) * leverage : undefined);
 
   return (
-    <Panel className="flex flex-col">
+    <Panel id="order-panel" className="flex flex-col">
       <div className="grid grid-cols-2 gap-1 p-2">
         <button
           onClick={() => setIsLong(true)}

@@ -1,7 +1,11 @@
 import type { ReactNode } from "react";
 
-export function Panel({ children, className = "" }: { children: ReactNode; className?: string }) {
-  return <section className={`rounded-md border border-line bg-panel ${className}`}>{children}</section>;
+export function Panel({ children, className = "", id }: { children: ReactNode; className?: string; id?: string }) {
+  return (
+    <section id={id} className={`rounded-md border border-line bg-panel ${className}`}>
+      {children}
+    </section>
+  );
 }
 
 export function PanelHeader({ children, right }: { children: ReactNode; right?: ReactNode }) {
