@@ -16,7 +16,17 @@ export const config = {
   keeperKey: env("KEEPER_PRIVATE_KEY") as `0x${string}`,
   databaseUrl: process.env.DATABASE_URL || "",
   port: Number(env("PORT", "8787")),
+  // The simulator ticks (and the website updates) every SIM_INTERVAL_MS. Posting prices on-chain
+  // costs gas, so the keeper only does it as often as needed:
+  //   someone has the site open      → every PRICE_INTERVAL_MS
+  //   nobody watching, trades open   → every WATCH_INTERVAL_MS, or at once if a TP/SL/limit order
+  //                                    triggers or a price drifts PRICE_DEVIATION from on-chain
+  //   nothing open, nobody watching  → every IDLE_INTERVAL_MS (heartbeat)
+  simIntervalMs: Number(env("SIM_INTERVAL_MS", "2000")),
   priceIntervalMs: Number(env("PRICE_INTERVAL_MS", "2000")),
+  watchIntervalMs: Number(env("WATCH_INTERVAL_MS", "15000")),
+  idleIntervalMs: Number(env("IDLE_INTERVAL_MS", "300000")),
+  priceDeviation: Number(env("PRICE_DEVIATION", "0.005")),
   corsOrigins: env("CORS_ORIGINS", "http://localhost:3000").split(",").map((s) => s.trim()),
   perps: (process.env.PERPS_ADDRESS || dep?.perps) as `0x${string}`,
   vault: (process.env.VAULT_ADDRESS || dep?.vault) as `0x${string}`,

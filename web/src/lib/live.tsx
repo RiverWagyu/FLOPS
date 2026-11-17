@@ -35,9 +35,20 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     let ws: WebSocket | null = null;
     let retry: ReturnType<typeof setTimeout>;
     let closed = false;
+    // Tell the keeper whether this tab is visible: it only posts prices on-chain every few
+    // seconds while someone is actually looking, which keeps its gas bill small.
+    const sendVisibility = () => {
+      if (ws?.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: "visibility", visible: document.visibilityState === "visible" }));
+      }
+    };
+    document.addEventListener("visibilitychange", sendVisibility);
     const connect = () => {
       ws = new WebSocket(KEEPER_URL.replace(/^http/, "ws") + "/ws");
-      ws.onopen = () => setConnected(true);
+      ws.onopen = () => {
+        setConnected(true);
+        sendVisibility();
+      };
       ws.onclose = () => {
         setConnected(false);
         if (!closed) retry = setTimeout(connect, 2000);
@@ -58,6 +69,7 @@ export function LiveProvider({ children }: { children: ReactNode }) {
     connect();
     return () => {
       closed = true;
+      document.removeEventListener("visibilitychange", sendVisibility);
       clearTimeout(retry);
       ws?.close();
     };

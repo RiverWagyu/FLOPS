@@ -59,7 +59,15 @@ flowchart LR
 
 **`keeper/`** (Node + TypeScript + viem)
 - Simulates prices as a mean-reverting random walk (Ornstein–Uhlenbeck) per GPU. Net trader open interest pushes the price toward the crowded side, and fictional "demand events" spike or sink a market and decay over ~20 min.
-- Posts all four prices in one transaction every ~2s.
+- Posts all four prices in one transaction, only as often as needed, to keep gas costs low:
+
+  | Situation | On-chain price updates |
+  |---|---|
+  | Someone has the site open in a visible tab | every 2s |
+  | Nobody watching, positions or orders open | every 15s, or immediately when a TP/SL/limit order triggers or a price moves 0.5% |
+  | Nothing open, nobody watching | every 5 min |
+
+  The website's chart keeps ticking every 2s in all cases. Each update costs about 72k gas.
 - Triggers liquidations, limit orders and TP/SL. Every action is simulated before sending, and the contract re-checks every condition.
 - Indexes contract events into Postgres (or embedded PGlite locally) and serves candles, trades, news, leaderboards and pool stats over HTTP and a WebSocket.
 
@@ -84,20 +92,19 @@ trade with a pre-funded local test account. No browser extension is needed.
 
 ```bash
 npm run contracts:test   # 26 Foundry tests incl. a fuzzed conservation-of-funds invariant
-npm test -w keeper       # price simulator tests
+npm test -w keeper       # price simulator + on-chain update schedule tests
 ```
 
 ## Deploy to Base Sepolia
 
-1. **Wallets.** Create two fresh wallets: a deployer (owner) and a keeper. Fund both with a little Base Sepolia ETH from a faucet. The keeper sends a price update every ~2s, so give it the larger share.
+1. **Wallets.** Run `bash scripts/new-wallets.sh`. It creates a deployer (owner) and a keeper wallet, saves their keys in `contracts/.env` (git-ignored) and prints only the addresses. Fund both with Base Sepolia ETH from a faucet. Deploying costs about 0.00004 ETH; the keeper pays for every price update, so give it the larger share.
 2. **Contracts.**
    ```bash
    cd contracts
-   cp .env.example .env   # fill in DEPLOYER_PRIVATE_KEY and KEEPER_ADDRESS
-   source .env
-   forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --verify
+   forge script script/Deploy.s.sol --rpc-url base_sepolia --broadcast --slow
    cd .. && npm run abi
    ```
+   Add `--verify` if you set `ETHERSCAN_API_KEY` in `contracts/.env`.
    This writes `contracts/deployments/84532.json` and regenerates the ABI modules. Commit both.
 3. **Keeper → Railway.** Create a service from this repo with root directory `keeper`, and add a Postgres database. Environment:
    `CHAIN_ID=84532`, `RPC_URL=<Base Sepolia RPC>`, `KEEPER_PRIVATE_KEY`, `DATABASE_URL` (from the Postgres plugin), `CORS_ORIGINS=https://<your-vercel-domain>`.

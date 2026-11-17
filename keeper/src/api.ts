@@ -26,6 +26,8 @@ export type LiveState = {
   markets: MarketState[];
   pool: { totalAssets: number; sharePrice: number; totalSupply: number };
   lastTick: number;
+  /** When prices were last posted on-chain (ms). */
+  lastPost: number;
   chainId: number;
 };
 
@@ -33,7 +35,13 @@ const TIMEFRAMES = new Set([60, 300, 900, 3600, 14400, 86400]);
 
 export function startApi(db: Db, state: LiveState, port: number, corsOrigins: string[]) {
   const routes: Record<string, (q: URLSearchParams) => Promise<unknown>> = {
-    "/api/health": async () => ({ ok: true, lastTick: state.lastTick, chainId: state.chainId }),
+    "/api/health": async () => ({
+      ok: true,
+      lastTick: state.lastTick,
+      lastPost: state.lastPost,
+      chainId: state.chainId,
+      viewers: viewers(),
+    }),
     "/api/markets": async () => state.markets,
     "/api/pool": async () => {
       const history = await db.query<{ ts: string; share_price: number; total_assets: number }>(
@@ -152,8 +160,19 @@ export function startApi(db: Db, state: LiveState, port: number, corsOrigins: st
   });
 
   const wss = new WebSocketServer({ server, path: "/ws" });
+  // Browsers report whether their tab is visible, so a forgotten background tab doesn't keep
+  // the keeper posting prices (and spending gas) at full speed.
+  const hidden = new WeakSet<WebSocket>();
   wss.on("connection", (ws: WebSocket) => {
     ws.send(JSON.stringify({ type: "snapshot", markets: state.markets, pool: state.pool }));
+    ws.on("message", (data) => {
+      try {
+        const msg = JSON.parse(String(data));
+        if (msg?.type === "visibility") msg.visible ? hidden.delete(ws) : hidden.add(ws);
+      } catch {
+        /* ignore malformed client messages */
+      }
+    });
   });
   bus.on("event", (e: BusEvent) => {
     const msg = JSON.stringify(e.type === "tick" ? { ...e, markets: state.markets, pool: state.pool } : e);
@@ -161,7 +180,13 @@ export function startApi(db: Db, state: LiveState, port: number, corsOrigins: st
   });
 
   server.listen(port, () => console.log(`[api] http://localhost:${port}  (ws /ws)`));
-  return server;
+  /** Number of connected browsers with the site in a visible tab. */
+  const viewers = () => {
+    let n = 0;
+    for (const c of wss.clients) if (c.readyState === 1 && !hidden.has(c)) n++;
+    return n;
+  };
+  return { server, viewers };
 }
 
 class HttpError extends Error {

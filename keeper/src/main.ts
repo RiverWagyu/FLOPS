@@ -6,6 +6,7 @@ import { Indexer } from "./indexer.ts";
 import { Executor } from "./executor.ts";
 import { startApi, emptyMarkets, type LiveState } from "./api.ts";
 import { bus } from "./bus.ts";
+import { postReason } from "./schedule.ts";
 
 const BACKFILL_DAYS = 7;
 
@@ -32,6 +33,7 @@ async function main() {
     markets: emptyMarkets(),
     pool: { totalAssets: 0, sharePrice: 1, totalSupply: 0 },
     lastTick: 0,
+    lastPost: 0,
     chainId: config.chainId,
   };
   startPrices.forEach((p, i) => {
@@ -41,7 +43,7 @@ async function main() {
 
   const indexer = new Indexer(db);
   const executor = new Executor(db);
-  startApi(db, state, config.port, config.corsOrigins);
+  const api = startApi(db, state, config.port, config.corsOrigins);
 
   // indexer loop
   (async function indexLoop() {
@@ -66,9 +68,11 @@ async function main() {
   setInterval(() => snapshotPool(db).catch((e) => console.warn("[pool]", e.message)), 60_000);
   await snapshotPool(db).catch(() => {});
 
-  // price loop
+  // price loop: the simulator ticks every SIM_INTERVAL_MS; prices go on-chain only when needed
   let last = Date.now();
   let failures = 0;
+  let onchain = startPrices.slice();
+  let mode = "";
   const tick = async () => {
     const started = Date.now();
     try {
@@ -85,12 +89,28 @@ async function main() {
       last = started;
       const { prices, events } = sim.step(dt, skews, started);
 
-      const hash = await walletClient.writeContract({
-        ...perps,
-        functionName: "setPrices",
-        args: [prices.map(toWad)],
-      });
-      await publicClient.waitForTransactionReceipt({ hash, timeout: 20_000 });
+      const openCount = await executor.load();
+      const reason = postReason({
+        viewers: api.viewers(),
+        openCount,
+        sinceLastPost: started - state.lastPost,
+        drift: Math.max(...prices.map((p, i) => Math.abs(p / onchain[i] - 1))),
+        triggered: openCount > 0 && executor.triggered(prices),
+      }, config);
+      const nextMode = reason?.split(":")[0] ?? mode;
+      if (nextMode !== mode) console.log(`[keeper] on-chain price mode: ${nextMode}`);
+      mode = nextMode;
+
+      if (reason) {
+        const hash = await walletClient.writeContract({
+          ...perps,
+          functionName: "setPrices",
+          args: [prices.map(toWad)],
+        });
+        await publicClient.waitForTransactionReceipt({ hash, timeout: 20_000 });
+        onchain = prices.slice();
+        state.lastPost = started;
+      }
 
       for (const ev of events) {
         const [row] = await db.query<{ id: number }>(
@@ -105,7 +125,7 @@ async function main() {
       markets.forEach((m, i) => {
         const s = state.markets[i];
         s.price = prices[i];
-        s.onchainPrice = prices[i];
+        s.onchainPrice = onchain[i];
         s.longOI = fromWad(m.longSize);
         s.shortOI = fromWad(m.shortSize);
         s.fundingRatePerHour = fromWad(m.fundingRatePerHour);
@@ -119,13 +139,14 @@ async function main() {
       state.lastTick = started;
       bus.publish({ type: "tick", t: started, prices });
 
-      await executor.run(prices);
+      // Liquidations, TP/SL and limit fills settle at the on-chain price, so check against that.
+      if (openCount > 0) await executor.run(onchain);
       failures = 0;
     } catch (e) {
       failures++;
       console.warn(`[tick] failed (${failures}):`, (e as Error).message.split("\n")[0]);
     }
-    const wait = Math.max(200, config.priceIntervalMs - (Date.now() - started));
+    const wait = Math.max(200, config.simIntervalMs - (Date.now() - started));
     setTimeout(tick, failures > 3 ? 5_000 : wait);
   };
   tick();
