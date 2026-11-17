@@ -10,5 +10,13 @@ export const deployments: Record<number, { chainId: number; startBlock: number; 
     "startBlock": 0,
     "tusd": "0x5FbDB2315678afecb367f032d93F642f64180aa3",
     "vault": "0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512"
+  },
+  "84532": {
+    "chainId": 84532,
+    "keeper": "0x9d442fc573C82db71ca03F3C2FbbE5512e16F28f",
+    "perps": "0x2EEc073B0d97a461447992FAB7f3850e772D1336",
+    "startBlock": 59874389,
+    "tusd": "0x83a1F3D72E59069a0bBC2aD1C5a2B46C4ae1D39b",
+    "vault": "0x4B0DE59B27546Bd432E34cf4e5d722E67FBf90a8"
   }
 } as any;

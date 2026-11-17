@@ -17,3 +17,5 @@ web/next-env.d.ts
 keeper/.data/
 keeper/dist/
 *.tsbuildinfo
+contracts/broadcast/**/dry-run/
+contracts/broadcast/**/*.lock
