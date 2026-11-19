@@ -3,6 +3,7 @@ import { Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { ClientProviders } from "./client-providers";
 import { Header } from "@/components/Header";
+import { Assistant } from "@/components/Assistant";
 
 const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
 const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-jb" });
@@ -20,6 +21,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         <ClientProviders>
           <Header />
           <main className="mx-auto w-full max-w-[1600px] px-2 pb-8 sm:px-3">{children}</main>
+          <Assistant />
         </ClientProviders>
       </body>
     </html>

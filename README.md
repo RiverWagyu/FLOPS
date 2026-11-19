@@ -113,7 +113,7 @@ npm test -w keeper       # price simulator + on-chain update schedule tests
    `CHAIN_ID=84532`, `RPC_URL=<Base Sepolia RPC>`, `KEEPER_PRIVATE_KEY`, `DATABASE_URL` (from the Postgres plugin), `CORS_ORIGINS=https://<your-vercel-domain>`.
 4. **Paymaster (optional).** In the Coinbase Developer Platform, enable the Base Sepolia paymaster and allowlist the tUSD, FlopsVault and FlopsPerps addresses.
 5. **Website → Vercel.** Import the repo with root directory `web`. Environment:
-   `NEXT_PUBLIC_CHAIN_ID=84532`, `NEXT_PUBLIC_KEEPER_URL=https://<railway-domain>`, `PAYMASTER_URL=<CDP paymaster URL>` (server-only), and optionally `NEXT_PUBLIC_WC_PROJECT_ID` and `NEXT_PUBLIC_RPC_URL`.
+   `NEXT_PUBLIC_CHAIN_ID=84532`, `NEXT_PUBLIC_KEEPER_URL=https://<railway-domain>`, `PAYMASTER_URL=<CDP paymaster URL>` (server-only), and optionally `NEXT_PUBLIC_WC_PROJECT_ID`, `NEXT_PUBLIC_RPC_URL` and `ANTHROPIC_API_KEY` (server-only, turns on the "Ask FLOPS AI" assistant).
 
 ## Design notes and known limits
 

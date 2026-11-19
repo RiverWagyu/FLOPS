@@ -14,6 +14,7 @@ import { GettingStarted, OPEN_GUIDE_EVENT } from "./GettingStarted";
 
 const NAV = [
   { href: "/trade/H100", match: "/trade", label: "Trade" },
+  { href: "/markets", match: "/markets", label: "Markets" },
   { href: "/earn", match: "/earn", label: "Earn" },
   { href: "/leaderboard", match: "/leaderboard", label: "Leaderboard" },
   { href: "/portfolio", match: "/portfolio", label: "Portfolio" },
