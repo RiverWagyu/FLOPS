@@ -2,7 +2,14 @@
 
 import { createContext, useCallback, useContext, useMemo, useState, type ReactNode } from "react";
 
-type Toast = { id: number; kind: "pending" | "success" | "error" | "info"; title: string; body?: string };
+type Toast = {
+  id: number;
+  kind: "pending" | "success" | "error" | "info";
+  title: string;
+  body?: string;
+  /** A link button under the body, e.g. "Open MetaMask" while a phone wallet request waits. */
+  action?: { label: string; href: string };
+};
 type Api = { push: (t: Omit<Toast, "id">) => number; update: (id: number, t: Partial<Toast>) => void };
 
 const Ctx = createContext<Api | null>(null);
@@ -57,6 +64,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
               </button>
             </div>
             {t.body && <p className="mt-1 pl-4 text-xs text-muted">{t.body}</p>}
+            {t.action && t.kind === "pending" && (
+              <a
+                href={t.action.href}
+                className="ml-4 mt-2 inline-block rounded border border-accent/60 px-2.5 py-1 text-xs font-medium text-accent hover:bg-accent/10"
+              >
+                {t.action.label}
+              </a>
+            )}
           </div>
         ))}
       </div>

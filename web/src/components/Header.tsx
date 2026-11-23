@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { ConnectButton } from "@rainbow-me/rainbowkit";
@@ -9,6 +10,7 @@ import { useLive } from "@/lib/live";
 import { useTusdBalance } from "@/lib/hooks";
 import { useExecute } from "@/lib/tx";
 import { fmtUsd } from "@/lib/format";
+import { metaMaskDappLink, walletIsSeparateApp } from "@/lib/mobile";
 import { Button } from "./ui";
 import { GettingStarted, OPEN_GUIDE_EVENT } from "./GettingStarted";
 
@@ -30,6 +32,7 @@ export function Header() {
         simulated · contracts are unaudited
       </div>
       <KeeperBanner />
+      <MobileWalletBanner />
       <header className="sticky top-0 z-40 border-b border-line bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-14 max-w-[1600px] items-center gap-3 px-3">
           <Link href="/trade/H100" className="flex items-center gap-2" aria-label="FLOPS home">
@@ -160,6 +163,44 @@ function Logo() {
         )),
       )}
     </svg>
+  );
+}
+
+const MOBILE_BANNER_KEY = "flops.mobileWalletBanner"; // "hidden" once dismissed
+
+/**
+ * In a phone browser the wallet is a separate app and its confirm window often doesn't pop up.
+ * Offer to reopen the site inside MetaMask's browser, or point to Base Account, which needs no app.
+ */
+function MobileWalletBanner() {
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    let hidden = false;
+    try {
+      hidden = localStorage.getItem(MOBILE_BANNER_KEY) === "hidden";
+    } catch {}
+    setShow(DEPLOYED && !hidden && walletIsSeparateApp());
+  }, []);
+  if (!show) return null;
+  const dismiss = () => {
+    setShow(false);
+    try {
+      localStorage.setItem(MOBILE_BANNER_KEY, "hidden");
+    } catch {}
+  };
+  return (
+    <div className="flex items-start gap-2 border-b border-accent/30 bg-accent/10 px-3 py-2 text-xs text-fg">
+      <p className="flex-1 leading-relaxed">
+        <span className="font-semibold">On a phone?</span> Wallet pop-ups work best inside the wallet app.{" "}
+        <a href={metaMaskDappLink(window.location.href)} className="font-semibold text-accent underline">
+          Open FLOPS in MetaMask
+        </a>
+        , or connect with <span className="font-semibold">Base Account</span> (no app or ETH needed).
+      </p>
+      <button onClick={dismiss} className="text-base leading-none text-muted hover:text-fg" aria-label="Dismiss">
+        ×
+      </button>
+    </div>
   );
 }
 

@@ -13,6 +13,7 @@ import {
 import { useQueryClient } from "@tanstack/react-query";
 import { BaseError, ContractFunctionRevertedError, type Abi } from "viem";
 import { CHAIN, KEEPER_URL, contracts } from "./config";
+import { METAMASK_APP_LINK, walletIsSeparateApp, withTimeout } from "./mobile";
 import { useToast } from "@/components/Toasts";
 
 export type Call = { address: `0x${string}`; abi: Abi; functionName: string; args?: readonly unknown[] };
@@ -33,7 +34,7 @@ function hasPaymaster() {
  */
 export function useExecute() {
   const config = useConfig();
-  const { address } = useAccount();
+  const { address, connector } = useAccount();
   const qc = useQueryClient();
   const toast = useToast();
 
@@ -44,14 +45,24 @@ export function useExecute() {
       opts?: { spender?: `0x${string}`; amount?: bigint; freshPrice?: boolean },
     ) => {
       if (!address) throw new Error("Connect a wallet first");
-      const id = toast.push({ kind: "pending", title: label, body: "Confirm in your wallet…" });
+      // On a phone browser the wallet is another app, and the phone often doesn't switch to it
+      // by itself: say where the request is waiting, with a button to open MetaMask.
+      const remote = walletIsSeparateApp();
+      const isMetaMask = /metamask/i.test(connector?.name ?? "") || connector?.id === "io.metamask";
+      const confirm = (prefix = "") => ({
+        body: remote
+          ? `${prefix}Open your ${isMetaMask ? "MetaMask" : "wallet"} app to confirm. The request is waiting there.`
+          : `${prefix}Confirm in your wallet…`,
+        action: remote && isMetaMask ? { label: "Open MetaMask", href: METAMASK_APP_LINK } : undefined,
+      });
+      const id = toast.push({ kind: "pending", title: label, ...confirm() });
       try {
         // Opening/closing settles at the on-chain price, which the keeper only posts on demand
         // (to save gas). Ask it to post the price shown on screen before the wallet pops up.
         if (opts?.freshPrice) {
-          toast.update(id, { body: "Updating the on-chain price…" });
+          toast.update(id, { body: "Updating the on-chain price…", action: undefined });
           await refreshPrices();
-          toast.update(id, { body: "Confirm in your wallet…" });
+          toast.update(id, confirm());
         }
         // Prepend an approval for exactly this action's tUSD, never an unlimited one:
         // wallets rightly flag unlimited approvals, and it limits what a contract bug could take.
@@ -66,12 +77,10 @@ export function useExecute() {
           }
         }
 
-        let caps: Record<string, any> | undefined;
-        try {
-          caps = (await getCapabilities(config, { account: address }))?.[CHAIN.id] as Record<string, any>;
-        } catch {
-          caps = undefined;
-        }
+        // Some wallets (MetaMask over WalletConnect on a phone) never answer this call,
+        // which used to leave the request stuck before it ever reached the wallet.
+        const allCaps = await withTimeout(getCapabilities(config, { account: address }), 3000, undefined);
+        const caps = allCaps?.[CHAIN.id] as Record<string, any> | undefined;
         const atomic = caps?.atomic?.status === "supported" || caps?.atomic?.status === "ready" || caps?.atomicBatch?.supported;
         const sponsor = Boolean(caps?.paymasterService?.supported) && (await hasPaymaster());
 
@@ -80,15 +89,15 @@ export function useExecute() {
             calls: calls.map((c) => ({ to: c.address, abi: c.abi, functionName: c.functionName, args: c.args ?? [] })),
             capabilities: sponsor ? { paymasterService: { url: `${window.location.origin}/api/paymaster` } } : undefined,
           } as any);
-          toast.update(id, { body: sponsor ? "Submitted (gas sponsored)…" : "Submitted…" });
+          toast.update(id, { body: sponsor ? "Submitted (gas sponsored)…" : "Submitted…", action: undefined });
           const res = await waitForCallsStatus(config, { id: callsId, timeout: 90_000 });
           if (res.status !== "success") throw new Error("Transaction failed");
         } else {
           for (let i = 0; i < calls.length; i++) {
             const c = calls[i];
-            if (calls.length > 1) toast.update(id, { body: `Step ${i + 1} of ${calls.length}: confirm in wallet…` });
+            if (calls.length > 1) toast.update(id, confirm(`Step ${i + 1} of ${calls.length}: `));
             const hash = await writeContract(config, { ...c, args: c.args ?? [] } as any);
-            toast.update(id, { body: "Waiting for confirmation…" });
+            toast.update(id, { body: "Waiting for confirmation…", action: undefined });
             const receipt = await waitForTransactionReceipt(config, { hash });
             if (receipt.status !== "success") throw new Error("Transaction reverted");
           }
@@ -101,7 +110,7 @@ export function useExecute() {
         return false;
       }
     },
-    [address, config, qc, toast],
+    [address, connector, config, qc, toast],
   );
 }
 
