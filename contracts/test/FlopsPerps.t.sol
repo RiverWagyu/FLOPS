@@ -142,20 +142,20 @@ contract FlopsPerpsTest is Test {
     function test_leverageLimits() public {
         vm.startPrank(alice);
         vm.expectRevert(FlopsPerps.LeverageTooHigh.selector);
-        perps.openPosition(H100, true, 100e18, 5_100e18, 0, 0);
+        perps.openPosition(H100, true, 100e18, 2_600e18, 0, 0);
         vm.expectRevert(FlopsPerps.LeverageTooLow.selector);
         perps.openPosition(H100, true, 1_000e18, 500e18, 0, 0);
         vm.expectRevert(FlopsPerps.CollateralTooLow.selector);
         perps.openPosition(H100, true, 5e18, 50e18, 0, 0);
-        // exactly 50x after fee is fine: size = 50 * (c − size*0.001)
-        perps.openPosition(H100, true, 105e18, 5_000e18, 0, 0);
+        // exactly 25x after fee is fine: size = 25 * (c − size*0.001)
+        perps.openPosition(H100, true, 205e18, 5_000e18, 0, 0);
         vm.stopPrank();
     }
 
     function test_maxPositionSize() public {
         vm.prank(alice);
         vm.expectRevert(FlopsPerps.PositionTooLarge.selector);
-        perps.openPosition(H100, true, 2_000e18, 51_000e18, 0, 0); // > 5% of 1M
+        perps.openPosition(H100, true, 2_100e18, 51_000e18, 0, 0); // > 5% of 1M, under 25x
     }
 
     function test_openInterestCap() public {
@@ -176,10 +176,10 @@ contract FlopsPerpsTest is Test {
 
     function test_liquidation() public {
         uint256 before = token.balanceOf(alice);
-        uint256 id = _open(alice, true, 105e18, 5_000e18); // ~50x
+        uint256 id = _open(alice, true, 205e18, 5_000e18); // 25x
         FlopsPerps.PositionStatus memory st = perps.positionStatus(id);
         assertFalse(st.liquidatable);
-        assertGt(st.liquidationPrice, 2.45e18);
+        assertGt(st.liquidationPrice, 2.4e18);
         assertLt(st.liquidationPrice, 2.5e18);
 
         vm.prank(liquidator);
@@ -193,7 +193,7 @@ contract FlopsPerpsTest is Test {
 
         vm.prank(liquidator);
         perps.liquidate(id);
-        assertEq(token.balanceOf(alice), before - 105e18, "trader loses collateral");
+        assertEq(token.balanceOf(alice), before - 205e18, "trader loses collateral");
         assertGt(token.balanceOf(liquidator), 0, "liquidator rewarded");
         assertLe(token.balanceOf(liquidator), 25e18, "reward <= 0.5% of size");
         _assertSettledClean();

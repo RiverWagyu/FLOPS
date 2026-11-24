@@ -13,7 +13,7 @@ export const DEFAULT_PARAMS: Params = {
   openFeeBps: 10,
   closeFeeBps: 10,
   executionFee: 1,
-  maxLeverage: 50,
+  maxLeverage: 25,
   maintenanceBps: 100,
   minCollateral: 10,
 };

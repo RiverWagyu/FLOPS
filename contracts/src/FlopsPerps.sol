@@ -10,7 +10,7 @@ import {EnumerableSet} from "@openzeppelin/contracts/utils/structs/EnumerableSet
 import {IFlopsPerps, IFlopsVault} from "./interfaces/IFlops.sol";
 
 /// @title FlopsPerps — GPU-hour perpetual futures against a house pool
-/// @notice Traders go long or short the simulated hourly rental price of a GPU, with 1–50x
+/// @notice Traders go long or short the simulated hourly rental price of a GPU, with 1–25x
 ///         isolated leverage. Every position is its own isolated position. The counterparty is
 ///         the FlopsVault LP pool. Prices are posted by a keeper (simulated oracle).
 /// @dev    All amounts are 18-decimal fixed point (WAD). `size` is entry notional in tUSD and
@@ -108,7 +108,7 @@ contract FlopsPerps is IFlopsPerps, Ownable, Pausable, ReentrancyGuard {
     uint256 public openFeeBps = 10; // 0.1%
     uint256 public closeFeeBps = 10; // 0.1%
     uint256 public executionFee = 1e18; // 1 tUSD per limit order / TP-SL
-    uint256 public maxLeverage = 50;
+    uint256 public maxLeverage = 25;
     uint256 public maintenanceBps = 100; // liquidate below 1% of size
     uint256 public liquidationRewardBps = 50; // liquidator gets up to 0.5% of size
     uint256 public oiCapBps = 3_000; // each side of each market ≤ 30% of pool

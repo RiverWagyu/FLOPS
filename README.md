@@ -5,7 +5,7 @@
 **Live demo: [flops-iota.vercel.app](https://flops-iota.vercel.app)** (Base Sepolia testnet)
 
 FLOPS is a perpetual-futures exchange where the underlying asset is one hour of GPU compute:
-H100, A100, RTX 4090 and L40S. Traders open isolated long or short positions with 1–50x
+H100, A100, RTX 4090 and L40S. Traders open isolated long or short positions with 1–25x
 leverage against a shared liquidity pool. Every trade, liquidation, limit order and
 take-profit settles in Solidity on Base Sepolia.
 
@@ -19,7 +19,7 @@ take-profit settles in Solidity on Base Sepolia.
 | | |
 |---|---|
 | **Markets** | `H100-PERP`, `A100-PERP`, `RTX4090-PERP`, `L40S-PERP`, priced in tUSD per GPU-hour |
-| **Leverage** | 1–50x, isolated margin, many independent positions per wallet |
+| **Leverage** | 1–25x, isolated margin, many independent positions per wallet |
 | **Orders** | Market, limit, take-profit and stop-loss (executed by a keeper, verified on-chain) |
 | **Counterparty** | `FLP` liquidity pool (ERC-4626) that anyone can deposit into |
 | **Fees** | 0.1% open + 0.1% close, size-based price impact, 1 tUSD keeper fee for automated orders |

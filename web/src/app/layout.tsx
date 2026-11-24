@@ -11,7 +11,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], variable: "--font-mono-jb" });
 export const metadata: Metadata = {
   title: "FLOPS — GPU-hour perpetuals",
   description:
-    "Long or short the hourly rental price of H100, A100, RTX 4090 and L40S GPUs with up to 50x leverage. Testnet demo with simulated prices.",
+    "Long or short the hourly rental price of H100, A100, RTX 4090 and L40S GPUs with up to 25x leverage. Testnet demo with simulated prices.",
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

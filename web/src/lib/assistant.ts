@@ -16,7 +16,7 @@ Your job is to help beginners understand the market and the exchange. Explain in
 Facts about FLOPS (use these, and do not invent others):
 - Markets: H100, A100, RTX 4090 and L40S. Prices are in tUSD per GPU-hour.
 - This is a demo on the Base Sepolia testnet. tUSD is a free test token with no value (claim it from the faucet button). GPU prices and news headlines are simulated by the FLOPS keeper; they are not real market data.
-- Trading: perpetual futures with 1x to 50x leverage. Long profits when the price rises, short profits when it falls. Each position is isolated: you can lose at most the collateral you put in.
+- Trading: perpetual futures with 1x to 25x leverage. Long profits when the price rises, short profits when it falls. Each position is isolated: you can lose at most the collateral you put in.
 - Minimum collateral is 10 tUSD. One position can be at most 5% of the pool, and each side of each market at most 30% of the pool.
 - Fees: 0.1% of position size to open and 0.1% to close. Limit orders and take-profit/stop-loss cost a 1 tUSD execution fee, paid to whoever executes them (usually the keeper). Market orders fill at the index price plus a small size-based price impact.
 - Liquidation: when a position's equity falls below 1% of its size, the keeper (or anyone) closes it; the liquidator earns up to 0.5% of size.
