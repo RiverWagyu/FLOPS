@@ -1,10 +1,19 @@
 import { connectorsForWallets } from "@rainbow-me/rainbowkit";
 import {
   base as baseWallet,
+  bitgetWallet,
+  braveWallet,
+  coinbaseWallet,
   injectedWallet,
   metaMaskWallet,
+  okxWallet,
+  phantomWallet,
   rabbyWallet,
+  rainbowWallet,
+  trustWallet,
+  uniswapWallet,
   walletConnectWallet,
+  zerionWallet,
 } from "@rainbow-me/rainbowkit/wallets";
 import { createConfig, http } from "wagmi";
 import { mock } from "wagmi/connectors";
@@ -50,12 +59,21 @@ function devWalletRemembered() {
 
 const projectId = process.env.NEXT_PUBLIC_WC_PROJECT_ID ?? "";
 
+/**
+ * These connect directly: as a browser extension, a passkey popup (Base) or their own app link.
+ * Wallets installed in the browser also show up on their own, through EIP-6963.
+ */
+const directWallets = [rabbyWallet, phantomWallet, braveWallet, injectedWallet];
+/**
+ * These reach a phone app or a QR code through WalletConnect when they aren't installed in the
+ * browser, which only works with a real WalletConnect project ID.
+ */
+const walletConnectWallets = [trustWallet, okxWallet, rainbowWallet, zerionWallet, uniswapWallet, bitgetWallet, walletConnectWallet];
+
 const walletConnectors = connectorsForWallets(
   [
-    {
-      groupName: "Recommended",
-      wallets: [baseWallet, metaMaskWallet, rabbyWallet, injectedWallet, ...(projectId ? [walletConnectWallet] : [])],
-    },
+    { groupName: "Recommended", wallets: [baseWallet, metaMaskWallet, coinbaseWallet] },
+    { groupName: "More wallets", wallets: [...(projectId ? walletConnectWallets : []), ...directWallets] },
   ],
   { appName: "FLOPS", projectId: projectId || "flops-demo" },
 );
